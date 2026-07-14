@@ -1,0 +1,18 @@
+.git
+.gitignore
+.github
+.vscode
+.idea
+*.iml
+
+target
+*.log
+
+# Archivos locales/sensibles
+.env
+application-secrets.properties
+src/main/resources/application-secrets.properties
+
+# Sistema operativo
+.DS_Store
+Thumbs.db

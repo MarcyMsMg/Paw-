@@ -1,0 +1,286 @@
+=====================================================================
+ PRUEBAS - Microservicio de Donaciones (puerto 8083)
+=====================================================================
+
+REQUISITOS ANTES DE PROBAR
+--------------------------
+1. Crear el schema en Supabase (SQL Editor):
+       CREATE SCHEMA IF NOT EXISTS donations;
+
+2. Tener corriendo los otros servicios (Donaciones los necesita):
+       - Usuarios  -> http://localhost:8081
+       - Campañas  -> http://localhost:8082
+
+3. Tener el Access Token de PRUEBA de MercadoPago configurado en
+   application.properties (mercadopago.access-token).
+
+4. Necesitarás IDs reales para las pruebas:
+       - donorId    = id de un usuario PERSONA_NATURAL (lo da Usuarios al
+                      hacer login o registrarse)
+       - campaignId = id de una campaña ACTIVA (lo da Campañas)
+       - ngoId      = id de una ONG ACTIVA (lo da Usuarios: GET /api/ngos)
+
+   Reemplaza los <...> de abajo por esos IDs reales.
+
+
+---------------------------------------------------------------------
+1) Verificar que el servicio está arriba
+---------------------------------------------------------------------
+GET: http://localhost:8083/api/donations?donorId=00000000-0000-0000-0000-000000000000
+
+RESULTADO ESPERADO (lista vacía, pero responde):
+{
+  "success": true,
+  "message": "Donaciones encontradas",
+  "data": []
+}
+
+
+---------------------------------------------------------------------
+2) Crear una donación A UNA CAMPAÑA
+---------------------------------------------------------------------
+POST: http://localhost:8083/api/donations
+
+BODY:
+{
+  "donorId": "<ID_PERSONA>",
+  "campaignId": "<ID_CAMPANA_ACTIVA>",
+  "amount": 5000
+}
+
+RESULTADO ESPERADO:
+{
+  "success": true,
+  "message": "Donación iniciada. Redirige al usuario a la URL de pago.",
+  "data": {
+    "donationId": "....",
+    "status": "PENDING",
+    "checkoutUrl": "https://www.mercadopago.cl/checkout/v1/redirect?pref_id=..."
+  }
+}
+
+-> Guarda el "donationId".
+-> Abre el "checkoutUrl" en el navegador para pagar (ver sección 6 para
+   el flujo de pago de prueba).
+
+NOTA: si la campaña no existe o no está ACTIVA, responde 422:
+{ "success": false, "message": "La campaña no está activa y no acepta donaciones", "data": null }
+
+NOTA (MVP): solo se dona a campañas. donorId, campaignId y amount son obligatorios;
+si falta alguno, responde 400 "Datos de la solicitud inválidos". El aporte directo a
+una ONG queda para una etapa posterior (junto con la liquidación a las ONGs).
+
+
+---------------------------------------------------------------------
+3) Consultar el estado de una donación
+---------------------------------------------------------------------
+GET: http://localhost:8083/api/donations/<DONATION_ID>
+
+RESULTADO ESPERADO:
+{
+  "success": true,
+  "message": "Donación encontrada",
+  "data": {
+    "id": "....",
+    "donorId": "....",
+    "campaignId": "....",
+    "ngoId": "....",
+    "type": "CAMPAIGN",
+    "amount": 5000,
+    "status": "PENDING",
+    "paymentMethod": null,
+    "createdAt": "2026-06-18T...",
+    "paidAt": null
+  }
+}
+
+-> Tras un pago aprobado, status pasa a APPROVED, paymentMethod se llena
+   (ej. "credit_card") y paidAt trae la fecha.
+
+
+---------------------------------------------------------------------
+4) Listar donaciones
+---------------------------------------------------------------------
+Por persona (su historial):
+GET: http://localhost:8083/api/donations?donorId=<ID_PERSONA>
+
+Por campaña (cuántas/ quiénes donaron):
+GET: http://localhost:8083/api/donations?campaignId=<ID_CAMPANA>
+
+Por ONG (todo lo que recibió a través de sus campañas):
+GET: http://localhost:8083/api/donations?ngoId=<ID_ONG>
+
+
+---------------------------------------------------------------------
+5) Flujo de pago de prueba (end-to-end con MercadoPago)
+---------------------------------------------------------------------
+Para pagar de verdad en el sandbox necesitas USUARIOS DE PRUEBA:
+
+  a) En el panel de MercadoPago Developers -> "Cuentas de prueba",
+     crea dos: un VENDEDOR y un COMPRADOR.
+  b) El Access Token del VENDEDOR es el que va en application.properties.
+  c) Abre el checkoutUrl (del punto 2) y paga logueado como el COMPRADOR,
+     o usa una TARJETA DE PRUEBA.
+
+TARJETAS DE PRUEBA (verifica las vigentes en tu panel, varían por país):
+  Mastercard: 5031 7557 3453 0604   CVV 123   Venc. 11/30
+  Visa:       4023 6535 2391 4373   CVV 123   Venc. 11/30
+
+  El RESULTADO se controla con el NOMBRE del titular:
+     APRO  -> pago aprobado
+     OTHE  -> pago rechazado
+     CONT  -> pago pendiente
+
+  Documento (RUT de prueba): 12345678-5
+
+
+---------------------------------------------------------------------
+6) Webhook de MercadoPago (notificación del resultado)
+---------------------------------------------------------------------
+MercadoPago avisa el resultado del pago llamando:
+POST: http://localhost:8083/api/donations/webhook?type=payment&data.id=<PAYMENT_ID>
+
+IMPORTANTE: en LOCAL MercadoPago NO puede llegar a localhost. Dos opciones:
+
+  OPCION A - ngrok (recomendado para probar de verdad):
+     1. Instala ngrok y corre:  ngrok http 8083
+     2. Copia la URL https que te da (ej. https://abc123.ngrok-free.app)
+     3. Ponla en application.properties:
+        mercadopago.notification-url=https://abc123.ngrok-free.app/api/donations/webhook
+     4. Reinicia el servicio y vuelve a crear la donación (punto 2).
+     Ahora MercadoPago sí podrá notificar y la donación pasará a APPROVED
+     sola tras pagar (y se sumará al recaudado de la campaña).
+
+  OPCION B - Simular el webhook a mano (necesitas un PAYMENT_ID real):
+     Tras pagar, MercadoPago te da un id de pago. Con ese id:
+     POST: http://localhost:8083/api/donations/webhook?type=payment&data.id=<PAYMENT_ID>
+     El servicio consulta ese pago en MercadoPago y actualiza la donación.
+
+  (No se puede inventar un PAYMENT_ID cualquiera: el servicio lo consulta
+   contra MercadoPago, así que debe ser un id de un pago real de prueba.)
+
+
+---------------------------------------------------------------------
+QUE PASA CUANDO SE APRUEBA UN PAGO
+---------------------------------------------------------------------
+- La donación pasa a APPROVED (idempotente: si llega el webhook 2 veces,
+  no suma dos veces).
+- Donaciones llama a Campañas para sumar al recaudado:
+      PATCH http://localhost:8082/api/campaigns/{id}/raise  { "amount": ... }
+  y el monto recaudado de la campaña sube.
+
+
+---------------------------------------------------------------------
+7) Estados de reembolso / contracargo (refunded / charged_back)
+---------------------------------------------------------------------
+El webhook tambien maneja estos estados de MercadoPago:
+   - "refunded"     -> la donacion pasa a REFUNDED
+   - "charged_back" -> la donacion pasa a CHARGED_BACK
+
+Importante: una donacion reembolsada NO descuenta del recaudado de la
+campana (eso requeriria tocar el microservicio de Campanas). Pero SI sale
+del saldo a pagar a la ONG, porque el saldo solo suma donaciones APPROVED.
+
+
+=====================================================================
+ PANEL DE ADMIN - Liquidacion de fondos a las ONGs
+=====================================================================
+Todo esto se calcula DENTRO de Donaciones (no consulta otros servicios):
+   saldo a pagar(ONG) = Σ donaciones APPROVED  -  Σ ya transferido
+
+8) Ver cuanto se le debe a cada ONG
+---------------------------------------------------------------------
+GET: http://localhost:8083/api/admin/payouts/balances
+
+RESULTADO ESPERADO:
+{
+  "success": true,
+  "message": "Saldos pendientes por ONG",
+  "data": [
+    {
+      "ngoId": "....",
+      "totalDonated": 50000,
+      "totalPaidOut": 20000,
+      "balanceOwed": 30000
+    }
+  ]
+}
+
+Saldo de una sola ONG:
+GET: http://localhost:8083/api/admin/payouts/balances/<ID_ONG>
+
+
+9) Registrar una transferencia ya hecha a una ONG
+---------------------------------------------------------------------
+POST: http://localhost:8083/api/admin/payouts
+
+BODY:
+{
+  "ngoId": "<ID_ONG>",
+  "amount": 30000,
+  "reference": "Transferencia banco #12345",
+  "note": "Liquidacion junio"
+}
+
+-> Descuenta del saldo pendiente de esa ONG.
+-> Si el monto supera el saldo pendiente, responde 400:
+   { "success": false, "message": "El monto excede el saldo pendiente de la ONG (disponible: ...)", "data": null }
+
+
+10) Historial de transferencias de una ONG
+---------------------------------------------------------------------
+GET: http://localhost:8083/api/admin/payouts?ngoId=<ID_ONG>
+
+
+NOTA / PENDIENTE (regla de negocio):
+El saldo de hoy suma TODAS las donaciones aprobadas de la ONG. La regla
+"solo liberar fondos de campanas FINALIZADAS" todavia NO esta aplicada:
+para eso habria que leer el estado de la campana desde el microservicio de
+Campanas (es solo lectura de un endpoint que ya existe, no lo modifica).
+Se agrega cuando se decida.
+
+
+=====================================================================
+ COMPROBANTE Y CONDUCTAS DE ROBUSTEZ
+=====================================================================
+
+11) Comprobante de una donacion aprobada
+---------------------------------------------------------------------
+GET: http://localhost:8083/api/donations/<DONATION_ID>/receipt
+
+RESULTADO ESPERADO (solo si la donacion esta APPROVED):
+{
+  "success": true,
+  "message": "Comprobante de la donacion",
+  "data": {
+    "receiptNumber": "PAW-2026-A1B2C3D4",
+    "donationId": "....",
+    "donorId": "....",
+    "campaignId": "....",
+    "ngoId": "....",
+    "amount": 5000,
+    "paymentMethod": "credit_card",
+    "paidAt": "2026-06-18T..."
+  }
+}
+
+Si la donacion no esta aprobada, responde 422:
+{ "success": false, "message": "La donacion no esta aprobada, no tiene comprobante", "data": null }
+
+
+CONDUCTAS NUEVAS (no son endpoints, pasan solas):
+
+- Se acredita el monto que CONFIRMA MercadoPago (transaction_amount), no el
+  que mando el cliente. Queda guardado en "paidAmount" y es lo que se suma a
+  la campana y al saldo de la ONG.
+
+- Firma del webhook: si configuras "mercadopago.webhook-secret" (en
+  application-secrets.properties), el webhook valida el header x-signature y
+  responde 401 si no calza. Si lo dejas vacio, no valida (modo desarrollo).
+
+- Bloqueo optimista (@Version) en la donacion: dos webhooks simultaneos no
+  pueden acreditar dos veces el mismo pago.
+
+- Donaciones PENDING abandonadas: una tarea programada las marca EXPIRED
+  pasados "donations.pending-expiry-minutes" (60 por defecto). Corre cada
+  "donations.expiry-check-ms" (30 min por defecto).

@@ -1,0 +1,116 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Paw+ Design System — modern startup, warm green palette */
+@layer base {
+  :root {
+    --background: 60 30% 98%;
+    --foreground: 160 25% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 160 25% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 160 25% 12%;
+
+    /* Brand: deep emerald */
+    --primary: 158 64% 32%;
+    --primary-foreground: 60 30% 98%;
+    --primary-glow: 152 70% 45%;
+
+    /* Warm accent: golden */
+    --accent: 38 92% 58%;
+    --accent-foreground: 160 30% 12%;
+
+    --secondary: 150 30% 94%;
+    --secondary-foreground: 158 50% 20%;
+
+    --muted: 150 20% 95%;
+    --muted-foreground: 160 10% 40%;
+
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 150 20% 90%;
+    --input: 150 20% 90%;
+    --ring: 158 64% 32%;
+
+    --radius: 1rem;
+
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(158 64% 32%) 0%, hsl(152 70% 45%) 100%);
+    --gradient-soft: linear-gradient(180deg, hsl(60 30% 98%) 0%, hsl(150 30% 94%) 100%);
+    --gradient-warm: linear-gradient(135deg, hsl(38 92% 58%) 0%, hsl(28 90% 60%) 100%);
+
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -4px hsl(158 40% 20% / 0.08);
+    --shadow-card: 0 10px 30px -10px hsl(158 40% 20% / 0.15);
+    --shadow-glow: 0 20px 50px -15px hsl(152 70% 45% / 0.35);
+
+    --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 160 25% 8%;
+    --foreground: 60 30% 96%;
+    --card: 160 25% 11%;
+    --card-foreground: 60 30% 96%;
+    --popover: 160 25% 11%;
+    --popover-foreground: 60 30% 96%;
+    --primary: 152 70% 45%;
+    --primary-foreground: 160 25% 8%;
+    --secondary: 160 20% 16%;
+    --secondary-foreground: 60 30% 96%;
+    --muted: 160 20% 16%;
+    --muted-foreground: 150 10% 65%;
+    --accent: 38 92% 58%;
+    --accent-foreground: 160 25% 8%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 60 30% 96%;
+    --border: 160 20% 20%;
+    --input: 160 20% 20%;
+    --ring: 152 70% 45%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  html { scroll-behavior: smooth; }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  h1, h2, h3, h4 {
+    font-family: 'Fraunces', Georgia, serif;
+    @apply tracking-tight;
+  }
+}
+
+@layer utilities {
+  .gradient-hero { background: var(--gradient-hero); }
+  .gradient-soft { background: var(--gradient-soft); }
+  .gradient-warm { background: var(--gradient-warm); }
+  .text-gradient {
+    background: var(--gradient-hero);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .shadow-soft { box-shadow: var(--shadow-soft); }
+  .shadow-card { box-shadow: var(--shadow-card); }
+  .shadow-glow { box-shadow: var(--shadow-glow); }
+  .transition-smooth { transition: all 0.3s var(--transition-smooth); }
+}

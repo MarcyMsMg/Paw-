@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+**/application-secrets.properties
+**/target/
+frontend/node_modules/
+frontend/dist/
+.vscode/
+.idea/
+frontend/coverage/

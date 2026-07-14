@@ -1,0 +1,202 @@
+services:
+  api-gateway:
+    build:
+      context: ./apigateway
+      dockerfile: Dockerfile
+    container_name: pawplus-api-gateway
+    restart: unless-stopped
+    ports:
+      - "${API_GATEWAY_PORT:-8080}:8080"
+    environment:
+      SERVER_PORT: 8080
+      JWT_SECRET: ${JWT_SECRET}
+
+      USERS_SERVICE_URL: http://users:8081
+      CAMPAIGNS_SERVICE_URL: http://campaigns:8082
+      DONATIONS_SERVICE_URL: http://donations:8083
+      ADOPTIONS_SERVICE_URL: http://adoptions:8084
+      FEED_SERVICE_URL: http://feed:8085
+      NOTIFICATIONS_SERVICE_URL: http://notifications:8086
+
+      GATEWAY_CORS_ALLOWED_ORIGINS: ${GATEWAY_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+    depends_on:
+      - users
+      - campaigns
+      - donations
+      - adoptions
+      - feed
+      - notifications
+    networks:
+      - pawplus-network
+
+  users:
+    build:
+      context: ./Users/users
+      dockerfile: Dockerfile
+    container_name: pawplus-users
+    restart: unless-stopped
+    ports:
+      - "${USERS_PORT:-8081}:8081"
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: ${USERS_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${USERS_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${USERS_DATASOURCE_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      PAWPLUS_ADMIN_PASSWORD: ${PAWPLUS_ADMIN_PASSWORD}
+
+      SERVICES_NOTIFICATIONS_BASE_URL: http://notifications:8086/api
+    networks:
+      - pawplus-network
+
+  campaigns:
+    build:
+      context: ./crowdfunding
+      dockerfile: Dockerfile
+    container_name: pawplus-campaigns
+    restart: unless-stopped
+    ports:
+      - "${CAMPAIGNS_PORT:-8082}:8082"
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: ${CAMPAIGNS_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${CAMPAIGNS_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${CAMPAIGNS_DATASOURCE_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+      SERVICES_USERS_BASE_URL: http://users:8081/api
+      SERVICES_NOTIFICATIONS_BASE_URL: http://notifications:8086/api
+    depends_on:
+      - users
+      - notifications
+    networks:
+      - pawplus-network
+
+  donations:
+    build:
+      context: ./donations
+      dockerfile: Dockerfile
+    container_name: pawplus-donations
+    restart: unless-stopped
+    ports:
+      - "${DONATIONS_PORT:-8083}:8083"
+    environment:
+      SERVER_PORT: 8083
+      SPRING_DATASOURCE_URL: ${DONATIONS_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${DONATIONS_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DONATIONS_DATASOURCE_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+      MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN}
+      MERCADOPAGO_WEBHOOK_SECRET: ${MERCADOPAGO_WEBHOOK_SECRET}
+      MERCADOPAGO_NOTIFICATION_URL: ${MERCADOPAGO_NOTIFICATION_URL}
+
+      MERCADOPAGO_BACK_URL_SUCCESS: ${MERCADOPAGO_BACK_URL_SUCCESS:-http://localhost:5173/persona/mis-donaciones}
+      MERCADOPAGO_BACK_URL_FAILURE: ${MERCADOPAGO_BACK_URL_FAILURE:-http://localhost:5173/crowdfundings}
+      MERCADOPAGO_BACK_URL_PENDING: ${MERCADOPAGO_BACK_URL_PENDING:-http://localhost:5173/persona/mis-donaciones}
+      SERVICES_CAMPAIGNS_BASE_URL: http://campaigns:8082/api
+      SERVICES_USERS_BASE_URL: http://users:8081/api
+      SERVICES_NOTIFICATIONS_BASE_URL: http://notifications:8086/api
+    depends_on:
+      - campaigns
+      - users
+      - notifications
+    networks:
+      - pawplus-network
+
+  adoptions:
+    build:
+      context: ./adoptions/adoptions
+      dockerfile: Dockerfile
+    container_name: pawplus-adoptions
+    restart: unless-stopped
+    ports:
+      - "${ADOPTIONS_PORT:-8084}:8084"
+    environment:
+      SERVER_PORT: 8084
+      SPRING_DATASOURCE_URL: ${ADOPTIONS_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${ADOPTIONS_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${ADOPTIONS_DATASOURCE_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+      SERVICES_USERS_BASE_URL: http://users:8081/api
+      SERVICES_NOTIFICATIONS_BASE_URL: http://notifications:8086/api
+    depends_on:
+      - users
+      - notifications
+    networks:
+      - pawplus-network
+
+  feed:
+    build:
+      context: ./feed
+      dockerfile: Dockerfile
+    container_name: pawplus-feed
+    restart: unless-stopped
+    ports:
+      - "${FEED_PORT:-8085}:8085"
+    environment:
+      SERVER_PORT: 8085
+      SPRING_DATASOURCE_URL: ${FEED_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${FEED_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${FEED_DATASOURCE_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+      SERVICES_USERS_BASE_URL: http://users:8081/api
+      SERVICES_NOTIFICATIONS_BASE_URL: http://notifications:8086/api
+    depends_on:
+      - users
+      - notifications
+    networks:
+      - pawplus-network
+
+  notifications:
+    build:
+      context: ./notifications
+      dockerfile: Dockerfile
+    container_name: pawplus-notifications
+    restart: unless-stopped
+    ports:
+      - "${NOTIFICATIONS_PORT:-8086}:8086"
+    environment:
+      SERVER_PORT: 8086
+      SPRING_DATASOURCE_URL: ${NOTIFICATIONS_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${NOTIFICATIONS_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${NOTIFICATIONS_DATASOURCE_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      SERVICES_USERS_BASE_URL: http://users:8081/api
+    depends_on:
+      - users
+    networks:
+      - pawplus-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api}
+    container_name: pawplus-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - pawplus-network
+
+networks:
+  pawplus-network:
+    driver: bridge
